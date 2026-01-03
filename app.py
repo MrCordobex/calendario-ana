@@ -63,17 +63,17 @@ mapa_carpetas = {
 # Pega aquí el link completo de Youtube (ej: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 musica_por_mes = {
     1: "https://www.youtube.com/watch?v=kw5p7Azmh2Y&list=RDkw5p7Azmh2Y&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 1
-    2: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 2
-    3: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 3
-    4: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 4
-    5: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 5
-    6: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 6
-    7: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 7
-    8: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 8
-    9: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 9
-    10: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 10
-    11: "", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 11
-    12: ""  # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 12
+    2: "https://www.youtube.com/watch?v=0qdDDFkheVw&list=RD0qdDDFkheVw&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 2
+    3: "https://www.youtube.com/watch?v=5SXrZh03-pI&list=RD5SXrZh03-pI&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 3
+    4: "https://www.youtube.com/watch?v=KgJzb_c2iiM&list=RDKgJzb_c2iiM&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 4
+    5: "https://www.youtube.com/watch?v=fgLEhuSd64I&list=RDfgLEhuSd64I&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 5
+    6: "https://www.youtube.com/watch?v=VEfkNHTjgs8&list=RDVEfkNHTjgs8&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 6
+    7: "https://www.youtube.com/watch?v=PSjeJrDI4a4&list=RDPSjeJrDI4a4&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 7
+    8: "https://www.youtube.com/watch?v=f41rIgQF-Mw&list=RDf41rIgQF-Mw&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 8
+    9: "https://www.youtube.com/watch?v=BH8uWpXCLIM&list=RDBH8uWpXCLIM&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 9
+    10: "https://www.youtube.com/watch?v=XM5DdGkRP40&list=RDXM5DdGkRP40&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 10
+    11: "https://www.youtube.com/watch?v=TTzrFxeBiUQ&list=RDTTzrFxeBiUQ&start_radio=1", # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 11
+    12: "https://www.youtube.com/watch?v=BaTM-84Akk8&list=RDBaTM-84Akk8&start_radio=1"  # PEDRO,RELLENA ESTO CON LA CANCION DEL MES 12
 }
 
 # --- LÓGICA INTELIGENTE DE URL (PARA LOS QRs) ---
@@ -111,7 +111,7 @@ mes_nombre = fecha_seleccionada.strftime("%B")
 nombres_meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 mes_esp = nombres_meses_es[fecha_seleccionada.month]
 
-st.markdown(f"<div class='main-title'>Nuestro {fecha_seleccionada.year}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='main-title'>Nuestros recuerdos</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='sub-title'>Fotito del <b>{fecha_seleccionada.day} de {mes_esp}</b></div>", unsafe_allow_html=True)
 
 # 2. Lógica de BLOQUEO
