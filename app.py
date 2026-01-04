@@ -4,6 +4,8 @@ from datetime import datetime, date
 from PIL import Image
 from pillow_heif import register_heif_opener
 import pytz
+import json  # <--- NUEVO
+from github import Github # <--- NUEVO
 
 # Habilitar soporte para fotos HEIC (iPhone)
 register_heif_opener()
@@ -14,6 +16,40 @@ st.set_page_config(
     page_icon="❤️",
     layout="centered"
 )
+
+# ==========================================
+# 🧠 CEREBRO: CONEXIÓN CON GITHUB (BASE DE DATOS)
+# ==========================================
+def gestionar_votos(mes, dia, nuevo_voto=None):
+    try:
+        # 1. Conectamos con GitHub usando el secreto
+        token = st.secrets["GITHUB_TOKEN"]
+        g = Github(token)
+        
+        # ⚠️⚠️ CAMBIA ESTO POR TU USUARIO Y NOMBRE DE REPO ⚠️⚠️
+        repo = g.get_user().get_repo("MrCordobex/streamlit-test-deploy") 
+        
+        contents = repo.get_contents("votos.json")
+        
+        # 2. Descargamos el archivo actual
+        datos = json.loads(contents.decoded_content.decode())
+        
+        clave = f"{mes}_{dia}" # Ej: "1_4" para el 4 de Enero
+        
+        # SI HAY NUEVO VOTO: Guardamos y subimos
+        if nuevo_voto is not None:
+            datos[clave] = nuevo_voto
+            # Actualizamos el archivo en GitHub
+            repo.update_file(contents.path, f"Voto dia {clave}", json.dumps(datos), contents.sha)
+            return nuevo_voto
+            
+        # SI NO HAY VOTO: Solo leemos
+        else:
+            return datos.get(clave, 50) # Si no existe, devuelve 50 por defecto
+
+    except Exception as e:
+        print(f"Error base de datos (ignorar si estás en local): {e}")
+        return 50
 
 # # --- ESTILOS CSS (CSS HACKING PARA MEJORAR LA ESTÉTICA) ---
 # --- ESTILOS CSS (ESTILO LIMPIO + POLAROID + POST-IT) ---
@@ -227,14 +263,28 @@ else:
         st.image(image, use_column_width=True)
 
         # =========================================================
-        # NUEVO: CRINGE-O-METRO (Antes del video)
+        # NUEVO: CRINGE-O-METRO (CON MEMORIA EN LA NUBE)
         # =========================================================
         st.write("") # Un poco de aire
         st.markdown("**🧐 ¿Qué nota le damos al outfit/careto?**")
         
-        # El slider va de 0 a 100, empieza en 50. 'collapsed' oculta la etiqueta fea de arriba
-        rating = st.slider("Puntúa:", 0, 100, 50, label_visibility="collapsed")
+        # 1. Recuperamos el voto guardado en GitHub (si existe)
+        valor_guardado = gestionar_votos(fecha_seleccionada.month, fecha_seleccionada.day)
+
+        # 2. Mostramos el slider empezando en el valor guardado
+        rating = st.slider(
+            "Puntúa:", 
+            0, 100, 
+            value=valor_guardado, 
+            key=f"slider_{dia}_{fecha_seleccionada.month}", # Clave única para no mezclar días
+            label_visibility="collapsed"
+        )
         
+        # 3. Si el usuario mueve el slider, guardamos el nuevo valor
+        if rating != valor_guardado:
+            gestionar_votos(fecha_seleccionada.month, fecha_seleccionada.day, rating)
+            st.toast("¡Nota guardada para siempre! ☁️", icon="✅")
+
         if rating < 20:
             st.warning("🤢 Madre de dios...  Pedro borra esto, por favor")
         elif rating < 50:
