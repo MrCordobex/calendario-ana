@@ -15,7 +15,47 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- ESTILOS CSS (CSS HACKING PARA MEJORAR LA ESTÉTICA) ---
+# # --- ESTILOS CSS (CSS HACKING PARA MEJORAR LA ESTÉTICA) ---
+# st.markdown("""
+#     <style>
+#     /* Centrar títulos */
+#     .main-title {
+#         text-align: center;
+#         font-family: 'Helvetica', sans-serif;
+#         color: #ff4b4b;
+#         font-size: 3em;
+#         font-weight: bold;
+#     }
+#     .sub-title {
+#         text-align: center;
+#         font-family: 'Helvetica', sans-serif;
+#         color: #555;
+#         font-size: 1.5em;
+#         margin-bottom: 20px;
+#     }
+#     /* Estilo del título de la canción */
+#     .song-title {
+#         text-align: center;
+#         font-family: 'Helvetica', sans-serif;
+#         color: #333;
+#         font-size: 1.3em;
+#         font-weight: bold;
+#         margin-top: 20px;
+#         margin-bottom: 10px;
+#     }
+#     /* Estilo del contenedor de la foto */
+#     .stImage {
+#         border-radius: 15px;
+#         box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+#     }
+#     /* Estilo para el desplegable de instrucciones */
+#     .streamlit-expanderHeader {
+#         font-weight: bold;
+#         color: #ff4b4b;
+#     }
+#     </style>
+# """, unsafe_allow_html=True)
+# --- ESTILOS CSS (ESTILO LIMPIO + EFECTO POLAROID) ---
 st.markdown("""
     <style>
     /* Centrar títulos */
@@ -43,11 +83,24 @@ st.markdown("""
         margin-top: 20px;
         margin-bottom: 10px;
     }
-    /* Estilo del contenedor de la foto */
-    .stImage {
-        border-radius: 15px;
-        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+
+    /* --- NUEVO: EFECTO POLAROID --- */
+    /* Apuntamos a la imagen exacta para ponerle el marco blanco */
+    div[data-testid="stImage"] img {
+        border: 12px solid #ffffff; /* Marco blanco lateral y superior */
+        border-bottom: 40px solid #ffffff; /* Marco inferior más grueso (donde se escribe) */
+        box-shadow: 3px 3px 10px rgba(0,0,0,0.2); /* Sombra para dar profundidad */
+        transform: rotate(-1.5deg); /* Pequeña inclinación "desenfadada" */
+        border-radius: 2px; /* El papel fotográfico apenas tiene esquinas redondeadas */
+        transition: transform 0.3s ease; /* Suaviza el movimiento si le pasas el ratón */
     }
+
+    /* Opcional: que se enderece un poco al pasar el ratón */
+    div[data-testid="stImage"] img:hover {
+        transform: rotate(0deg) scale(1.01);
+    }
+    /* ----------------------------- */
+
     /* Estilo para el desplegable de instrucciones */
     .streamlit-expanderHeader {
         font-weight: bold;
