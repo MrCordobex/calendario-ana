@@ -3,3 +3,4 @@ Pillow
 pillow-heif
 pytz
 PyGithub
+pandas

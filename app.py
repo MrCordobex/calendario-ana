@@ -4,8 +4,9 @@ from datetime import datetime, date
 from PIL import Image
 from pillow_heif import register_heif_opener
 import pytz
-import json  # <--- NUEVO
-from github import Github # <--- NUEVO
+import json
+from github import Github
+import pandas as pd # <--- NUEVO: Para las gráficas
 
 # Habilitar soporte para fotos HEIC (iPhone)
 register_heif_opener()
@@ -18,147 +19,88 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🧠 CEREBRO: CONEXIÓN CON GITHUB (CORREGIDO V2)
+# 🧠 CEREBRO: CONEXIÓN CON GITHUB
 # ==========================================
-def gestionar_votos(mes, dia, nuevo_voto=None):
+def obtener_conexion_repo():
+    """Función auxiliar para conectar al repo sin repetir código"""
     try:
-        # 1. Intentamos leer el secreto
         if "GITHUB_TOKEN" not in st.secrets:
-            st.error("❌ ERROR: No encuentro el GITHUB_TOKEN. Ve a Settings > Secrets en Streamlit.")
-            return 50
-            
+            st.error("❌ Falta el Token en Secrets.")
+            return None
         token = st.secrets["GITHUB_TOKEN"]
         g = Github(token)
-        
-        # 2. Intentamos conectar con el repo (USAMOS EL MÉTODO DIRECTO)
-        # Asegúrate de que este nombre coincide con lo que sale en tu navegador
+        # ⚠️⚠️ PON AQUÍ TU NOMBRE DE REPO REAL ⚠️⚠️
         nombre_repo = "MrCordobex/streamlit-test-deploy" 
-        
-        try:
-            # CAMBIO CLAVE: Usamos get_repo directo, es más fiable
-            repo = g.get_repo(nombre_repo)
-        except Exception as e:
-            # AQUI AHORA SALDRÁ EL ERROR REAL
-            st.error(f"❌ ERROR CONECTANDO AL REPO: {e}")
-            return 50
+        return g.get_repo(nombre_repo)
+    except Exception as e:
+        st.error(f"Error conectando: {e}")
+        return None
 
-        # 3. Intentamos leer el archivo
-        try:
-            contents = repo.get_contents("votos.json")
-            datos = json.loads(contents.decoded_content.decode())
-        except Exception as e:
-            st.error(f"❌ ERROR LEYENDO ARCHIVO: {e}. Comprueba que 'votos.json' existe en el repo.")
-            return 50
+def gestionar_votos(mes, dia, nuevo_voto=None):
+    repo = obtener_conexion_repo()
+    if not repo: return 50
+    
+    try:
+        contents = repo.get_contents("votos.json")
+        datos = json.loads(contents.decoded_content.decode())
         
         clave = f"{mes}_{dia}"
         
-        # 4. Intentamos escribir
         if nuevo_voto is not None:
             datos[clave] = nuevo_voto
-            try:
-                repo.update_file(contents.path, f"Voto dia {clave}", json.dumps(datos), contents.sha)
-                return nuevo_voto
-            except Exception as e:
-                st.error(f"❌ ERROR ESCRIBIENDO: {e}. ¿El token tiene permiso 'repo'?")
-                return 50
-            
+            repo.update_file(contents.path, f"Voto dia {clave}", json.dumps(datos), contents.sha)
+            return nuevo_voto
         else:
-            return datos.get(clave, 50)
-
+            return datos.get(clave, 50) # 50 por defecto
     except Exception as e:
-        st.error(f"❌ ERROR GENERAL: {e}")
+        print(f"Error gestión votos: {e}")
         return 50
-# # --- ESTILOS CSS (CSS HACKING PARA MEJORAR LA ESTÉTICA) ---
-# --- ESTILOS CSS (ESTILO LIMPIO + POLAROID + POST-IT) ---
+
+def obtener_todos_los_datos():
+    """Descarga todos los votos para las estadísticas"""
+    repo = obtener_conexion_repo()
+    if not repo: return {}
+    try:
+        contents = repo.get_contents("votos.json")
+        return json.loads(contents.decoded_content.decode())
+    except:
+        return {}
+
+# ==========================================
+# 🎨 ESTILOS CSS
+# ==========================================
 st.markdown("""
     <style>
-    /* Centrar títulos */
-    .main-title {
-        text-align: center;
-        font-family: 'Helvetica', sans-serif;
-        color: #ff4b4b;
-        font-size: 3em;
-        font-weight: bold;
-    }
-    .sub-title {
-        text-align: center;
-        font-family: 'Helvetica', sans-serif;
-        color: #555;
-        font-size: 1.5em;
-        margin-bottom: 20px;
-    }
-    .song-title {
-        text-align: center;
-        font-family: 'Helvetica', sans-serif;
-        color: #333;
-        font-size: 1.3em;
-        font-weight: bold;
-        margin-top: 20px;
-        margin-bottom: 10px;
-    }
-
-    /* EFECTO POLAROID */
+    .main-title { text-align: center; font-family: 'Helvetica', sans-serif; color: #ff4b4b; font-size: 3em; font-weight: bold; }
+    .sub-title { text-align: center; color: #555; font-size: 1.5em; margin-bottom: 20px; }
+    .song-title { text-align: center; color: #333; font-size: 1.3em; font-weight: bold; margin-top: 20px; }
     div[data-testid="stImage"] img {
-        border: 12px solid #ffffff;
-        border-bottom: 40px solid #ffffff;
-        box-shadow: 3px 3px 10px rgba(0,0,0,0.2);
-        transform: rotate(-1.5deg);
-        border-radius: 2px;
-        transition: transform 0.3s ease;
+        border: 12px solid #ffffff; border-bottom: 40px solid #ffffff;
+        box-shadow: 3px 3px 10px rgba(0,0,0,0.2); transform: rotate(-1.5deg);
+        border-radius: 2px; transition: transform 0.3s ease;
     }
-    div[data-testid="stImage"] img:hover {
-        transform: rotate(0deg) scale(1.01);
-    }
-
-    /* Estilo para el desplegable */
-    .streamlit-expanderHeader {
-        font-weight: bold;
-        color: #ff4b4b;
-    }
-
-    /* --- NUEVO: EL POST-IT AMARILLO --- */
+    div[data-testid="stImage"] img:hover { transform: rotate(0deg) scale(1.01); }
     .postit {
-        position: fixed;
-        bottom: 80px; /* Lo subimos para que no lo tape la barra del móvil */
-        right: 20px; /* Lo movemos a la DERECHA para que no lo tape el menú lateral */
-        width: 140px;
-        background-color: #ffeb3b;
-        padding: 15px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-        transform: rotate(-2deg); /* Lo giramos al otro lado */
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-        color: #333;
-        z-index: 999999; /* Z-index exagerado para asegurar que salga encima de todo */
-        text-align: center;
-        border-radius: 2px;
-        border: 1px solid #e6db55; /* Un borde sutil queda mejor */
+        position: fixed; bottom: 80px; right: 20px; width: 140px;
+        background-color: #ffeb3b; padding: 15px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.3); transform: rotate(-2deg);
+        font-family: 'Courier New', monospace; font-size: 14px; color: #333;
+        z-index: 999999; text-align: center; border-radius: 2px; border: 1px solid #e6db55;
     }
-    /* Ocultar post-it en móviles muy pequeños si molesta (opcional) */
-    @media (max-width: 640px) {
-        .postit {
-            width: 100px;
-            font-size: 11px;
-            padding: 10px;
-        }
-    }
+    @media (max-width: 640px) { .postit { width: 100px; font-size: 11px; padding: 10px; } }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE DATOS ---
+# --- DATOS GLOBALES ---
 zona_horaria = pytz.timezone('Europe/Madrid') 
 hoy = datetime.now(zona_horaria).date()
-# Descomenta la línea de abajo para probar fechas futuras:
-# hoy = date(2024, 2, 14)
+# hoy = date(2024, 12, 31) # Descomentar para pruebas
 
-# Mapa para traducir el número del mes a tu carpeta
 mapa_carpetas = {
     1: "01_Enero", 2: "02_Febrero", 3: "03_Marzo", 4: "04_Abril",
     5: "05_Mayo", 6: "06_Junio", 7: "07_Julio", 8: "08_Agosto",
     9: "09_Septiembre", 10: "10_Octubre", 11: "11_Noviembre", 12: "12_Diciembre"
 }
-
-# --- CONFIGURACIÓN DE MÚSICA ---
 musica_por_mes = {
     1: "https://www.youtube.com/watch?v=kw5p7Azmh2Y&list=RDkw5p7Azmh2Y&start_radio=1",
     2: "https://www.youtube.com/watch?v=0qdDDFkheVw&list=RD0qdDDFkheVw&start_radio=1",
@@ -173,167 +115,217 @@ musica_por_mes = {
     11: "https://www.youtube.com/watch?v=TTzrFxeBiUQ&list=RDTTzrFxeBiUQ&start_radio=1",
     12: "https://www.youtube.com/watch?v=BaTM-84Akk8&list=RDBaTM-84Akk8&start_radio=1"
 }
+nombres_meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
-# --- LÓGICA INTELIGENTE DE URL (PARA LOS QRs) ---
-params = st.query_params
-fecha_defecto = hoy
+# ==========================================
+# 📊 PÁGINA DE ESTADÍSTICAS (MODIFICADA)
+# ==========================================
+def ver_estadisticas():
+    st.markdown(f"<div class='main-title'>📊 Estadísticas del Amor</div>", unsafe_allow_html=True)
+    st.write("")
 
-if "mes" in params:
-    try:
-        mes_url = int(params["mes"])
-        if 1 <= mes_url <= 12:
-            fecha_defecto = date(hoy.year, mes_url, 1)
-            if mes_url == hoy.month:
-                fecha_defecto = hoy
-    except:
-        pass
+    # 1. Recuperar datos
+    raw_data = obtener_todos_los_datos()
+    if not raw_data:
+        st.info("Aún no hay votos suficientes para generar estadísticas. ¡Id a votar fotos!")
+        return
 
-# --- BARRA LATERAL (CALENDARIO + INSTRUCCIONES) ---
-with st.sidebar:
+    # Procesar datos
+    lista_datos = []
+    for key, valor in raw_data.items():
+        m, d = key.split('_')
+        lista_datos.append({'Mes': int(m), 'Día': int(d), 'Nota': valor})
     
-    # --- NUEVO: BOTÓN DESPLEGABLE CON INSTRUCCIONES ---
-    with st.expander("🎁 ¿Cómo funciona el regalo?"):
-        st.markdown("""
-        **¡Holii!** Bienvenido a tu calendario infinito. ❤️
+    df = pd.DataFrame(lista_datos)
+    
+    # 2. Selector
+    filtro = st.selectbox("¿Qué quieres analizar?", ["Todo el Año"] + names_meses_slice)
+    
+    if filtro == "Todo el Año":
+        df_filtrado = df
+        titulo_grafica = "Evolución de notas del Año"
+    else:
+        mes_idx = nombres_meses_es.index(filtro)
+        df_filtrado = df[df['Mes'] == mes_idx]
+        titulo_grafica = f"Evolución de notas en {filtro}"
+
+    if df_filtrado.empty:
+        st.warning(f"No hay votos registrados en {filtro} todavía.")
+        return
+
+    # 3. Gráfica
+    media = df_filtrado['Nota'].mean()
+    df_filtrado['Media'] = media
+    df_filtrado = df_filtrado.sort_values(by=['Mes', 'Día'])
+    df_filtrado['Indice'] = range(1, len(df_filtrado) + 1)
+    
+    st.caption(f"📈 {titulo_grafica} (Media: {media:.1f})")
+    st.line_chart(df_filtrado, x='Indice', y=['Nota', 'Media'], color=["#ff4b4b", "#888888"])
+
+    st.divider()
+
+    # --- ZONA DE HONOR Y HORROR ---
+    # Creamos dos columnas para poner una al lado de la otra (si cabe)
+    col_best, col_worst = st.columns(2)
+    
+    # --- 🏆 LA MEJOR FOTO ---
+    with col_best:
+        st.markdown("<h3 style='text-align: center; color: #4CAF50;'>🏆 La Mejor</h3>", unsafe_allow_html=True)
+        mejor_row = df_filtrado.loc[df_filtrado['Nota'].idxmax()]
         
-        1. **📸 Foto Diaria:** Cada día se desbloquea una foto nueva automáticamente. La foto se ha tomado en el mes en el que se desbloquea :)
-        2. **🚫 Sin Trampas:** Si intentas seleccionar un día futuro, el sistema no te dejará verlo jeje
-        3. **🎶 Música:** Cada mes tiene su propia banda sonora. Dale al play debajo de la foto
-        4. **🔙 Recuerdos:** Puedes usar el calendario de abajo para volver a ver días pasados
-        """)
+        carpeta = mapa_carpetas.get(int(mejor_row['Mes']))
+        ruta = os.path.join("Fotos", carpeta)
+        archivo_best = None
+        if os.path.exists(ruta):
+            for f in os.listdir(ruta):
+                if f.lower().startswith(f"{int(mejor_row['Día'])}."):
+                    archivo_best = os.path.join(ruta, f)
+                    break
+        
+        if archivo_best:
+            st.image(Image.open(archivo_best), caption=f"Nota: {mejor_row['Nota']}", use_column_width=True)
+            st.success(f"Día {int(mejor_row['Día'])} de {nombres_meses_es[int(mejor_row['Mes'])]}")
     
-    st.write("---") # Separador visual
+    # --- 🧟 LA PEOR FOTO ---
+    with col_worst:
+        st.markdown("<h3 style='text-align: center; color: #ff4b4b;'>🧟 La Peor</h3>", unsafe_allow_html=True)
+        peor_row = df_filtrado.loc[df_filtrado['Nota'].idxmin()]
+        
+        carpeta = mapa_carpetas.get(int(peor_row['Mes']))
+        ruta = os.path.join("Fotos", carpeta)
+        archivo_worst = None
+        if os.path.exists(ruta):
+            for f in os.listdir(ruta):
+                if f.lower().startswith(f"{int(peor_row['Día'])}."):
+                    archivo_worst = os.path.join(ruta, f)
+                    break
+        
+        if archivo_worst:
+            st.image(Image.open(archivo_worst), caption=f"Nota: {peor_row['Nota']}", use_column_width=True)
+            st.error(f"Día {int(peor_row['Día'])} de {nombres_meses_es[int(peor_row['Mes'])]}")
 
-    st.header("📅 Navegación")
-    st.write("Selecciona un día especial:")
+# ==========================================
+# 📅 PÁGINA DEL CALENDARIO (TU CÓDIGO ACTUAL)
+# ==========================================
+def ver_calendario():
+    # LÓGICA URL
+    params = st.query_params
+    fecha_defecto = hoy
+    if "mes" in params:
+        try:
+            mes_url = int(params["mes"])
+            if 1 <= mes_url <= 12:
+                fecha_defecto = date(hoy.year, mes_url, 1)
+                if mes_url == hoy.month: fecha_defecto = hoy
+        except: pass
+
+    # BARRA LATERAL DEL CALENDARIO
+    with st.sidebar:
+        with st.expander("🎁 ¿Cómo funciona el regalo?"):
+            st.markdown("""
+            **¡Holii!** Bienvenido a tu calendario infinito. ❤️
+            1. **📸 Foto Diaria:** Cada día se desbloquea una foto nueva.
+            2. **🚫 Sin Trampas:** No puedes ver el futuro.
+            3. **🎶 Música:** Dale al play.
+            4. **🔙 Recuerdos:** Usa el calendario.
+            """)
+        st.write("---")
+        st.header("📅 Navegación")
+        fecha_seleccionada = st.date_input("Calendario", value=fecha_defecto, min_value=date(hoy.year, 1, 1), max_value=date(hoy.year, 12, 31))
+        st.write("---")
+
+    # CUERPO PRINCIPAL
+    mes_esp = nombres_meses_es[fecha_seleccionada.month]
+    dia_anio = fecha_seleccionada.timetuple().tm_yday
+    dias_totales_anio = 366 if fecha_seleccionada.year % 4 == 0 else 365
+    porcentaje = dia_anio / dias_totales_anio
+    st.caption(f"Capítulo {dia_anio} de {dias_totales_anio}")
+    st.progress(porcentaje)
     
-    fecha_seleccionada = st.date_input(
-        "Calendario",
-        value=fecha_defecto,
-        min_value=date(hoy.year, 1, 1),
-        max_value=date(hoy.year, 12, 31)
-    )
+    # POST-IT
+    fecha_inicio = date(2019, 12, 7)
+    dias_juntos = (hoy - fecha_inicio).days
+    st.markdown(f"<div class='postit'><b>Días Juntitos:</b><br><span style='font-size: 20px'>{dias_juntos}</span><br>❤️</div>", unsafe_allow_html=True)
+
+    st.markdown(f"<div class='main-title'>Nuestros recuerdos</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-title'>Fotito del <b>{fecha_seleccionada.day} de {mes_esp}</b></div>", unsafe_allow_html=True)
+
+    if fecha_seleccionada > hoy:
+        st.divider()
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            st.error("¡Alto ahí! ⏳")
+            st.write(f"Hoy es {hoy.day}. No puedes ver el futuro TRAMPOSA")
+            st.image("https://media.giphy.com/media/tXL4FHPSnVJ0A/giphy.gif")
+    else:
+        carpeta = mapa_carpetas.get(fecha_seleccionada.month)
+        dia = fecha_seleccionada.day
+        ruta_carpeta = os.path.join("Fotos", carpeta)
+        foto_encontrada = None
+        if os.path.exists(ruta_carpeta):
+            for archivo in os.listdir(ruta_carpeta):
+                if archivo.lower().startswith(f"{dia}."):
+                    foto_encontrada = os.path.join(ruta_carpeta, archivo)
+                    break
+        st.divider()
+        if foto_encontrada:
+            image = Image.open(foto_encontrada)
+            st.image(image, use_column_width=True)
+            
+            # CRINGE-O-METRO
+            st.write("")
+            st.markdown("**🧐 ¿Qué nota le damos al outfit/careto?**")
+            valor_guardado = gestionar_votos(fecha_seleccionada.month, fecha_seleccionada.day)
+            rating = st.slider("Puntúa:", 0, 100, value=valor_guardado, key=f"sl_{dia}_{fecha_seleccionada.month}", label_visibility="collapsed")
+            
+            if rating != valor_guardado:
+                gestionar_votos(fecha_seleccionada.month, fecha_seleccionada.day, rating)
+                st.toast("Nota guardada! ☁️", icon="✅")
+
+            if rating < 20: st.warning("🤢 Madre de dios... Pedro borra esto.")
+            elif rating < 50: st.info("😅 Bueno, se intentó.")
+            elif rating < 80: st.success("😎 Ni tan mal ehhhhh.")
+            else: st.success("🔥 ¡DIOSES DEL OLIMPO! Vaya fotón")
+            
+            # MÚSICA
+            link_cancion = musica_por_mes.get(fecha_seleccionada.month)
+            if link_cancion and len(link_cancion) > 5:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown(f"<div class='song-title'>🎶 Nuestra canción de {mes_esp}</div>", unsafe_allow_html=True)
+                c1, c2, c3 = st.columns([1,2,1])
+                with c2: st.video(link_cancion)
+            
+            if fecha_seleccionada == hoy: st.balloons()
+            txt_path = foto_encontrada.rsplit('.', 1)[0] + ".txt"
+            if os.path.exists(txt_path):
+                with open(txt_path, "r", encoding="utf-8") as f: st.info(f.read())
+        else:
+            st.warning(f"Ups, falta la foto del día {dia}... 😘")
+
+
+# ==========================================
+# 🚦 CONTROLADOR DE NAVEGACIÓN (MAIN)
+# ==========================================
+# Variable para controlar la lista de meses en el filtro
+names_meses_slice = nombres_meses_es[1:]
+
+# Inicializar estado de página
+if 'pagina_actual' not in st.session_state:
+    st.session_state.pagina_actual = "Calendario"
+
+# BARRA LATERAL COMÚN (BOTONES)
+with st.sidebar:
+    st.title("Menú")
+    if st.button("📅 Ver Calendario", use_container_width=True):
+        st.session_state.pagina_actual = "Calendario"
+    
+    if st.button("📊 Ver Estadísticas", use_container_width=True):
+        st.session_state.pagina_actual = "Stats"
     
     st.write("---")
-    st.caption("❤️ Hecho con cariño")
 
-# --- PÁGINA PRINCIPAL ---
-
-mes_nombre = fecha_seleccionada.strftime("%B")
-nombres_meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-mes_esp = nombres_meses_es[fecha_seleccionada.month]
-
-# --- NUEVO: BARRA DE PROGRESO ---
-# 1. Calculamos el día del año (ej: día 4 de 366)
-dia_anio = fecha_seleccionada.timetuple().tm_yday
-dias_totales_anio = 366 if fecha_seleccionada.year % 4 == 0 else 365
-porcentaje = dia_anio / dias_totales_anio
-
-# 2. Texto de la barra (Menos ñoño, más limpio)
-st.caption(f"Capítulo {dia_anio} de {dias_totales_anio}")
-st.progress(porcentaje)
-
-# --- NUEVO: POST-IT (DÍAS JUNTOS) ---
-fecha_inicio = date(2019, 12, 7) # Vuestra fecha
-dias_juntos = (hoy - fecha_inicio).days # Cálculo de días
-
-st.markdown(f"""
-    <div class='postit'>
-        <b>Días Juntitos:</b><br>
-        <span style='font-size: 20px'>{dias_juntos}</span>
-        <br>❤️
-    </div>
-""", unsafe_allow_html=True)
-
-# -------------------------------
-
-st.markdown(f"<div class='main-title'>Nuestros recuerdos</div>", unsafe_allow_html=True)
-st.markdown(f"<div class='sub-title'>Fotito del <b>{fecha_seleccionada.day} de {mes_esp}</b></div>", unsafe_allow_html=True)
-
-# 2. Lógica de BLOQUEO
-if fecha_seleccionada > hoy:
-    st.divider()
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.error("¡Alto ahí, viajera del tiempo! ⏳")
-        st.write(f"Hoy es {hoy.day} de {nombres_meses_es[hoy.month]}. No puedes ver el futuro TRAMPOSA")
-        st.image("https://media.giphy.com/media/tXL4FHPSnVJ0A/giphy.gif")
-
+# MOSTRAR LA PÁGINA QUE TOQUE
+if st.session_state.pagina_actual == "Calendario":
+    ver_calendario()
 else:
-    carpeta = mapa_carpetas.get(fecha_seleccionada.month)
-    dia = fecha_seleccionada.day
-    
-    ruta_carpeta = os.path.join("Fotos", carpeta)
-    foto_encontrada = None
-    
-    if os.path.exists(ruta_carpeta):
-        archivos = os.listdir(ruta_carpeta)
-        for archivo in archivos:
-            # Convertimos el nombre a minúsculas para comparar
-            if archivo.lower().startswith(f"{dia}."):
-                foto_encontrada = os.path.join(ruta_carpeta, archivo)
-                break
-    st.divider()
-    
-    if foto_encontrada:
-        image = Image.open(foto_encontrada)
-        st.image(image, use_column_width=True)
-
-        # =========================================================
-        # NUEVO: CRINGE-O-METRO (CON MEMORIA EN LA NUBE)
-        # =========================================================
-        st.write("") # Un poco de aire
-        st.markdown("**🧐 ¿Qué nota le damos al outfit/careto?**")
-        
-        # 1. Recuperamos el voto guardado en GitHub (si existe)
-        valor_guardado = gestionar_votos(fecha_seleccionada.month, fecha_seleccionada.day)
-
-        # 2. Mostramos el slider empezando en el valor guardado
-        rating = st.slider(
-            "Puntúa:", 
-            0, 100, 
-            value=valor_guardado, 
-            key=f"slider_{dia}_{fecha_seleccionada.month}", # Clave única para no mezclar días
-            label_visibility="collapsed"
-        )
-        
-        # 3. Si el usuario mueve el slider, guardamos el nuevo valor
-        if rating != valor_guardado:
-            gestionar_votos(fecha_seleccionada.month, fecha_seleccionada.day, rating)
-            st.toast("¡Nota guardada para siempre! ☁️", icon="✅")
-
-        if rating < 20:
-            st.warning("🤢 Madre de dios...  Pedro borra esto, por favor")
-        elif rating < 50:
-            st.info("😅 Bueno, se intentó. No es nuestro mejor día")
-        elif rating < 80:
-            st.success("😎 Ni tan mal ehhhhh. Tenemos rollito")
-        else:
-            st.success("🔥 ¡DIOSES DEL OLIMPO! Vaya fotón")
-        
-        # =========================================================
-        
-        # --- AQUI VA LA MÚSICA ---
-        link_cancion = musica_por_mes.get(fecha_seleccionada.month)
-        if link_cancion and len(link_cancion) > 5:
-            # 1. Añadimos espacio (salto de línea)
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # 2. Título más grande y con estilo propio
-            st.markdown(f"<div class='song-title'>🎶 Nuestra canción de {mes_esp}</div>", unsafe_allow_html=True)
-            
-            # 3. Vídeo más pequeño usando columnas
-            col_izq, col_centro, col_der = st.columns([1, 2, 1])
-            with col_centro:
-                st.video(link_cancion)
-
-        if fecha_seleccionada == hoy:
-            st.balloons()
-            
-        txt_path = foto_encontrada.rsplit('.', 1)[0] + ".txt"
-        if os.path.exists(txt_path):
-            with open(txt_path, "r", encoding="utf-8") as f:
-                st.info(f.read())
-                
-    else:
-        st.warning(f"Ups, parece que para el día {dia} de {mes_esp} se me olvidó subir la foto... ¡Pídeme un beso de compensación! 😘")
+    ver_estadisticas()
