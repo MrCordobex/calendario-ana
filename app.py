@@ -18,26 +18,28 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🧠 CEREBRO: CONEXIÓN CON GITHUB (MODO DEBUG)
+# 🧠 CEREBRO: CONEXIÓN CON GITHUB (CORREGIDO V2)
 # ==========================================
 def gestionar_votos(mes, dia, nuevo_voto=None):
     try:
         # 1. Intentamos leer el secreto
         if "GITHUB_TOKEN" not in st.secrets:
-            st.error("❌ ERROR: No encuentro el GITHUB_TOKEN en los secretos de Streamlit.")
+            st.error("❌ ERROR: No encuentro el GITHUB_TOKEN. Ve a Settings > Secrets en Streamlit.")
             return 50
             
         token = st.secrets["GITHUB_TOKEN"]
         g = Github(token)
         
-        # 2. Intentamos conectar con el repo
-        # AQUI ES DONDE SUELE FALLAR: Asegúrate de que este nombre es EXACTO
-        nombre_repo = "MrCordobex/streamlit-test-deploy" # <--- CAMBIA ESTO POR TU NOMBRE REAL SI ES OTRO
+        # 2. Intentamos conectar con el repo (USAMOS EL MÉTODO DIRECTO)
+        # Asegúrate de que este nombre coincide con lo que sale en tu navegador
+        nombre_repo = "MrCordobex/streamlit-test-deploy" 
         
         try:
-            repo = g.get_user().get_repo(nombre_repo)
-        except Exception:
-            st.error(f"❌ ERROR: No encuentro el repositorio '{nombre_repo}'. Revisa el nombre o los permisos del Token.")
+            # CAMBIO CLAVE: Usamos get_repo directo, es más fiable
+            repo = g.get_repo(nombre_repo)
+        except Exception as e:
+            # AQUI AHORA SALDRÁ EL ERROR REAL
+            st.error(f"❌ ERROR CONECTANDO AL REPO: {e}")
             return 50
 
         # 3. Intentamos leer el archivo
@@ -45,7 +47,7 @@ def gestionar_votos(mes, dia, nuevo_voto=None):
             contents = repo.get_contents("votos.json")
             datos = json.loads(contents.decoded_content.decode())
         except Exception as e:
-            st.error(f"❌ ERROR LEYENDO JSON: {e}. ¿Creaste el archivo votos.json en GitHub con {{}} dentro?")
+            st.error(f"❌ ERROR LEYENDO ARCHIVO: {e}. Comprueba que 'votos.json' existe en el repo.")
             return 50
         
         clave = f"{mes}_{dia}"
@@ -57,7 +59,7 @@ def gestionar_votos(mes, dia, nuevo_voto=None):
                 repo.update_file(contents.path, f"Voto dia {clave}", json.dumps(datos), contents.sha)
                 return nuevo_voto
             except Exception as e:
-                st.error(f"❌ ERROR ESCRIBIENDO: {e}. ¿Tu Token tiene permiso 'repo' completo?")
+                st.error(f"❌ ERROR ESCRIBIENDO: {e}. ¿El token tiene permiso 'repo'?")
                 return 50
             
         else:
