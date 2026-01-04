@@ -3,6 +3,7 @@ import os
 from datetime import datetime, date
 from PIL import Image
 from pillow_heif import register_heif_opener
+import pytz
 
 # Habilitar soporte para fotos HEIC (iPhone)
 register_heif_opener()
@@ -56,7 +57,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN DE DATOS ---
-hoy = datetime.now().date()
+zona_horaria = pytz.timezone('Europe/Madrid') 
+hoy = datetime.now(zona_horaria).date()
 # Descomenta la línea de abajo para probar fechas futuras:
 # hoy = date(2024, 2, 14)
 
