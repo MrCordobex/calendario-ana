@@ -118,92 +118,140 @@ musica_por_mes = {
 nombres_meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
 # ==========================================
-# 📊 PÁGINA DE ESTADÍSTICAS (MODIFICADA)
+# 📊 PÁGINA DE ESTADÍSTICAS (MODIFICADA V2)
 # ==========================================
 def ver_estadisticas():
-    st.markdown(f"<div class='main-title'>📊 Estadísticas del Amor</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='main-title'>📊 Estadísticas</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-title'>Pedro no se ha podido resistir...</div>", unsafe_allow_html=True)
     st.write("")
 
     # 1. Recuperar datos
     raw_data = obtener_todos_los_datos()
-    if not raw_data:
-        st.info("Aún no hay votos suficientes para generar estadísticas. ¡Id a votar fotos!")
-        return
-
-    # Procesar datos
-    lista_datos = []
-    for key, valor in raw_data.items():
-        m, d = key.split('_')
-        lista_datos.append({'Mes': int(m), 'Día': int(d), 'Nota': valor})
     
-    df = pd.DataFrame(lista_datos)
-    
-    # 2. Selector
+    # 2. Selector de Filtro
     filtro = st.selectbox("¿Qué quieres analizar?", ["Todo el Año"] + names_meses_slice)
     
+    # 3. Definir Rango de Fechas (Inicio - Fin)
+    # Calculamos el rango real hasta "hoy" para rellenar huecos
+    anio_actual = hoy.year
+    
     if filtro == "Todo el Año":
-        df_filtrado = df
+        start_date = date(anio_actual, 1, 1)
+        end_date = hoy # Hasta hoy
         titulo_grafica = "Evolución de notas del Año"
     else:
         mes_idx = nombres_meses_es.index(filtro)
-        df_filtrado = df[df['Mes'] == mes_idx]
+        
+        # Si el mes seleccionado es futuro (ej: Febrero y estamos en Enero)
+        if mes_idx > hoy.month:
+            st.warning(f"¡Aún no hemos llegado a {filtro}! Paciencia viajera del tiempo.")
+            return
+            
+        start_date = date(anio_actual, mes_idx, 1)
+        
+        # El fin es HOY si estamos en ese mes, o el último día del mes si ya pasó
+        if mes_idx == hoy.month:
+            end_date = hoy
+        else:
+            # Calcular último día del mes (truco rápido)
+            if mes_idx == 12:
+                end_date = date(anio_actual, 12, 31)
+            else:
+                end_date = date(anio_actual, mes_idx + 1, 1) - pd.Timedelta(days=1)
+                
         titulo_grafica = f"Evolución de notas en {filtro}"
 
-    if df_filtrado.empty:
-        st.warning(f"No hay votos registrados en {filtro} todavía.")
-        return
-
-    # 3. Gráfica
-    media = df_filtrado['Nota'].mean()
-    df_filtrado['Media'] = media
-    df_filtrado = df_filtrado.sort_values(by=['Mes', 'Día'])
-    df_filtrado['Indice'] = range(1, len(df_filtrado) + 1)
+    # 4. Generar DataFrame con TODAS las fechas (Relleno de huecos)
+    # Creamos un rango completo de fechas desde inicio hasta fin
+    rango_fechas = pd.date_range(start=start_date, end=end_date)
     
+    df = pd.DataFrame(rango_fechas, columns=['Fecha'])
+    
+    # Función para buscar la nota en tu JSON (que usa formato "mes_dia")
+    def buscar_nota(fecha):
+        clave = f"{fecha.month}_{fecha.day}"
+        return raw_data.get(clave, None) # Devuelve None si no hay dato
+
+    # Aplicamos la búsqueda
+    df['Nota'] = df['Fecha'].apply(buscar_nota)
+    
+    # AQUI ESTÁ LA MAGIA: Rellenar los None con 50
+    df['Nota'] = df['Nota'].fillna(50)
+    
+    # 5. Formatear Eje X bonito ("1 de Enero")
+    # Creamos una columna texto para que Streamlit la pinte tal cual
+    def formatear_fecha(fecha):
+        mes_nombre = nombres_meses_es[fecha.month]
+        return f"{fecha.day} de {mes_nombre}"
+        
+    df['Día'] = df['Fecha'].apply(formatear_fecha)
+    
+    # 6. Calcular Media y Pintar
+    media = df['Nota'].mean()
+    df['Media'] = media
+    
+    # Usamos 'Día' como índice para que salga en el eje X
     st.caption(f"📈 {titulo_grafica} (Media: {media:.1f})")
-    st.line_chart(df_filtrado, x='Indice', y=['Nota', 'Media'], color=["#ff4b4b", "#888888"])
+    
+    # Pintamos usando 'Día' en el eje X
+    st.line_chart(df, x='Día', y=['Nota', 'Media'], color=["#ff4b4b", "#888888"])
 
     st.divider()
 
     # --- ZONA DE HONOR Y HORROR ---
-    # Creamos dos columnas para poner una al lado de la otra (si cabe)
+    # Solo buscamos mejor/peor si hay al menos una nota real (distinta de 50 o si el 50 es real)
+    # Para evitar que salga el día 1 con nota 50 como "mejor foto" si no hay datos,
+    # filtramos un poco o asumimos que el relleno cuenta.
+    
     col_best, col_worst = st.columns(2)
     
     # --- 🏆 LA MEJOR FOTO ---
     with col_best:
         st.markdown("<h3 style='text-align: center; color: #4CAF50;'>🏆 La Mejor</h3>", unsafe_allow_html=True)
-        mejor_row = df_filtrado.loc[df_filtrado['Nota'].idxmax()]
+        # Buscamos el máximo
+        idx_max = df['Nota'].idxmax()
+        mejor_row = df.loc[idx_max]
         
-        carpeta = mapa_carpetas.get(int(mejor_row['Mes']))
+        # Recuperamos fecha real para buscar la foto
+        f_mejor = mejor_row['Fecha']
+        carpeta = mapa_carpetas.get(f_mejor.month)
         ruta = os.path.join("Fotos", carpeta)
         archivo_best = None
+        
         if os.path.exists(ruta):
             for f in os.listdir(ruta):
-                if f.lower().startswith(f"{int(mejor_row['Día'])}."):
+                if f.lower().startswith(f"{f_mejor.day}."):
                     archivo_best = os.path.join(ruta, f)
                     break
         
         if archivo_best:
             st.image(Image.open(archivo_best), caption=f"Nota: {mejor_row['Nota']}", use_column_width=True)
-            st.success(f"Día {int(mejor_row['Día'])} de {nombres_meses_es[int(mejor_row['Mes'])]}")
+            st.success(f"{mejor_row['Día']}")
+        else:
+            st.info("Sin foto ganadora aún")
     
     # --- 🧟 LA PEOR FOTO ---
     with col_worst:
         st.markdown("<h3 style='text-align: center; color: #ff4b4b;'>🧟 La Peor</h3>", unsafe_allow_html=True)
-        peor_row = df_filtrado.loc[df_filtrado['Nota'].idxmin()]
+        idx_min = df['Nota'].idxmin()
+        peor_row = df.loc[idx_min]
         
-        carpeta = mapa_carpetas.get(int(peor_row['Mes']))
+        f_peor = peor_row['Fecha']
+        carpeta = mapa_carpetas.get(f_peor.month)
         ruta = os.path.join("Fotos", carpeta)
         archivo_worst = None
+        
         if os.path.exists(ruta):
             for f in os.listdir(ruta):
-                if f.lower().startswith(f"{int(peor_row['Día'])}."):
+                if f.lower().startswith(f"{f_peor.day}."):
                     archivo_worst = os.path.join(ruta, f)
                     break
         
         if archivo_worst:
             st.image(Image.open(archivo_worst), caption=f"Nota: {peor_row['Nota']}", use_column_width=True)
-            st.error(f"Día {int(peor_row['Día'])} de {nombres_meses_es[int(peor_row['Mes'])]}")
-
+            st.error(f"{peor_row['Día']}")
+        else:
+            st.info("Sin foto perdedora aún")
 # ==========================================
 # 📅 PÁGINA DEL CALENDARIO (TU CÓDIGO ACTUAL)
 # ==========================================
